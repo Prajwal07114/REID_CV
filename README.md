@@ -1,206 +1,400 @@
-# Person Re-ID & Multi-Camera Tracking System · v3.0
+# 🚀 Person Re-Identification & Multi-Camera Tracking System (v3.0)
 
-A production-style, modular implementation of a person re-identification and multi-camera tracking pipeline.
+A production-grade, modular pipeline for **multi-camera person tracking and re-identification** using modern deep learning and MOT techniques.
 
-**Stack:** YOLOv8 → ByteTrack + Kalman → OSNet → Cross-camera cosine matching → Market-1501 evaluation
+This system detects people across multiple camera streams, tracks them locally, extracts identity embeddings, and matches identities globally across cameras in real time.
 
 ---
 
-## Architecture
+# ✨ Features
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                         main.py  (orchestrator)                  │
-└───────────┬───────────────┬──────────────────┬───────────────────┘
-            │               │                  │
-    ┌───────▼──────┐  ┌─────▼──────┐  ┌───────▼───────┐
-    │  Detection   │  │  Tracking  │  │     ReID      │
-    │  (YOLO v8)   │  │            │  │               │
-    │              │  │ ┌────────┐ │  │ ┌───────────┐ │
-    │ detect()     │  │ │Kalman  │ │  │ │EmbEngine  │ │
-    │ detect_batch │  │ │[x,y,a,h│ │  │ │ (OSNet /  │ │
-    └──────────────┘  │ └────────┘ │  │ │  ResNet)  │ │
-                      │ ┌────────┐ │  │ └───────────┘ │
-                      │ │Tracklet│ │  │ ┌───────────┐ │
-                      │ └────────┘ │  │ │  Gallery  │ │
-                      │ ┌────────┐ │  │ │ (EMA cos) │ │
-                      │ │Byte-   │ │  │ └───────────┘ │
-                      │ │Track   │ │  │ ┌───────────┐ │
-                      │ └────────┘ │  │ │ Pipeline  │ │
-                      └────────────┘  │ └───────────┘ │
-                                      └───────────────┘
-            │               │                  │
-    ┌───────▼───────────────▼──────────────────▼───────┐
-    │              Visualization (HUD)                  │
-    │   heatmap · trajectory · entry/exit counter       │
-    └───────────────────────────────────────────────────┘
-            │
-    ┌───────▼──────────────────────────────────────────┐
-    │              Evaluation & Benchmarking            │
-    │   Market-1501 mAP/Rank-N · Ablation grid search  │
-    └──────────────────────────────────────────────────┘
+- 🔍 **Person Detection** using YOLOv8
+- 🎯 **Multi-Object Tracking** using ByteTrack + Kalman Filter
+- 🧠 **Person Re-Identification (ReID)** using OSNet
+- 🔗 **Cross-Camera Identity Matching**
+- 📊 **Market-1501 Evaluation Support**
+- ⚡ Batched multi-camera inference
+- 📈 Ablation benchmarking framework
+- 🎥 Real-time visualization HUD
+- 🧪 Embedding sanity checks
+- 🧱 Clean modular architecture
+
+---
+
+# 🧠 Pipeline Overview
+
+```text
+YOLOv8 Detection
+        ↓
+ByteTrack + Kalman Tracking
+        ↓
+OSNet Embedding Extraction
+        ↓
+Cosine Similarity Matching
+        ↓
+Global Cross-Camera Identity Assignment
 ```
 
 ---
 
-## Repository Structure
+# 🏗️ System Architecture
 
+```text
+┌──────────────────────────────────────────────┐
+│                 main.py                      │
+│          (Pipeline Orchestrator)             │
+└───────────────┬───────────────┬──────────────┘
+                │               │
+        ┌───────▼───────┐ ┌─────▼────────┐
+        │   Detection   │ │   Tracking   │
+        │    YOLOv8     │ │ ByteTrack +  │
+        │               │ │ Kalman Filter│
+        └───────┬───────┘ └─────┬────────┘
+                │               │
+                └──────┬────────┘
+                       ▼
+             ┌──────────────────┐
+             │       ReID       │
+             │      OSNet       │
+             │  Cosine Matching │
+             └────────┬─────────┘
+                      ▼
+          ┌────────────────────────┐
+          │ Cross-Camera Identity  │
+          │     Global Gallery     │
+          └────────┬───────────────┘
+                   ▼
+        ┌─────────────────────────┐
+        │ Visualization & Metrics │
+        └─────────────────────────┘
 ```
+
+---
+
+# 📁 Repository Structure
+
+```text
 reid-multicam-v3/
 │
-├── main.py                    # CLI entry point
+├── main.py
 ├── requirements.txt
 ├── README.md
 │
 ├── config/
-│   └── settings.py            # Immutable SystemConfig dataclass
+│   └── settings.py
 │
 ├── detection/
-│   └── detector.py            # YOLOv8 wrapper; detect() / detect_batch()
+│   └── detector.py
 │
 ├── tracking/
-│   ├── kalman.py              # [x,y,a,h] Kalman filter (SORT/ByteTrack standard)
-│   ├── tracker.py             # ByteTracker + IoUTracker
-│   └── tracklet.py            # Tracklet dataclass
+│   ├── kalman.py
+│   ├── tracker.py
+│   └── tracklet.py
 │
 ├── reid/
-│   ├── embedding_engine.py    # Abstract EmbeddingEngine base class
-│   ├── osnet_engine.py        # OSNet (Market-1501 ReID-pretrained)
-│   ├── resnet_engine.py       # ResNet baseline (ImageNet-pretrained)
-│   ├── gallery.py             # Cross-camera identity gallery (EMA matching)
-│   └── pipeline.py            # ReIDPipeline; build_engine() factory
+│   ├── embedding_engine.py
+│   ├── osnet_engine.py
+│   ├── resnet_engine.py
+│   ├── gallery.py
+│   └── pipeline.py
 │
 ├── evaluation/
-│   ├── market1501.py          # Correct Market-1501 protocol
-│   └── metrics.py             # print_results / save_results
+│   ├── market1501.py
+│   └── metrics.py
 │
 ├── benchmarking/
-│   └── ablation.py            # Tracker × backbone grid search
+│   └── ablation.py
 │
 ├── visualization/
-│   └── hud.py                 # Drawing utils + CameraProcessor
+│   └── hud.py
 │
 ├── utils/
-│   ├── io.py                  # Session I/O helpers
-│   ├── geometry.py            # BBox geometry utilities
-│   ├── logging_utils.py       # Logging configuration
-│   └── sanity_check.py        # Embedding engine verification
+│   ├── io.py
+│   ├── geometry.py
+│   ├── logging_utils.py
+│   └── sanity_check.py
 │
-└── outputs/                   # Written by the pipeline at runtime
+└── outputs/
 ```
 
 ---
 
-## Key Fixes (v2 → v3)
+# ⚙️ Tech Stack
 
-| # | Fix | Impact |
-|---|-----|--------|
-| 1 | **OSNet loading** — `num_classes=1` + strip classifier; Market-1501 pretrained weights | Correct embedding space for cosine matching |
-| 2 | **Market-1501 distractor handling** — keep `pid==-1` in gallery at load time | Results comparable to published benchmarks |
-| 3 | **ByteTrack double-increment** — newly-lost tracks no longer incremented twice | Correct occlusion lifetime; fewer ID switches |
-| 4 | **Kalman state space** — `[x,y,a,h]` (aspect ratio) instead of `[cx,cy,w,h]` | Scale-invariant, numerically stable filter |
-| – | **detect_batch** wired into the main loop | One YOLO call for all cameras per frame |
-| – | **Gallery buffer** uses `deque(maxlen=)` not `list.pop(0)` | O(1) instead of O(N) append |
-| – | **Global config** never mutated; passed via constructor | Thread-safe; testable in isolation |
+| Component | Technology |
+|---|---|
+| Detection | YOLOv8 |
+| Tracking | ByteTrack |
+| Motion Model | Kalman Filter |
+| ReID Backbone | OSNet |
+| Matching | Cosine Similarity |
+| Evaluation | Market-1501 |
+| Framework | PyTorch |
 
 ---
 
-## Installation
+# 🔧 Major Improvements in v3
+
+| Fix | Description | Impact |
+|---|---|---|
+| ✅ OSNet loading fix | Proper Market-1501 pretrained embeddings | Accurate cosine matching |
+| ✅ Market-1501 distractor fix | Keeps `pid==-1` gallery images | Benchmark correctness |
+| ✅ ByteTrack bug fix | Prevents double increment of lost tracks | Fewer ID switches |
+| ✅ Kalman redesign | Uses `[x,y,a,h]` state space | More stable tracking |
+| ✅ Batched detection | Single YOLO call for all cameras | Faster inference |
+| ✅ Gallery optimization | `deque(maxlen)` buffer | O(1) operations |
+| ✅ Immutable config | Thread-safe architecture | Easier testing |
+
+---
+
+# 📦 Installation
+
+## Clone Repository
 
 ```bash
-git clone https://github.com/yourname/reid-multicam-v3
-cd reid-multicam-v3
+git clone https://github.com/Prajwal07114/REID_CV.git
+cd REID_CV
+```
+
+## Install Dependencies
+
+```bash
 pip install -r requirements.txt
 ```
 
-> **torchreid note:** if `pip install torchreid` fails, install from source:
-> ```bash
-> git clone https://github.com/KaiyangZhou/deep-person-reid
-> cd deep-person-reid && pip install -e .
-> ```
+---
+
+# ⚠️ torchreid Installation
+
+If this fails:
+
+```bash
+pip install torchreid
+```
+
+Install from source instead:
+
+```bash
+git clone https://github.com/KaiyangZhou/deep-person-reid
+cd deep-person-reid
+pip install -e .
+```
 
 ---
 
-## Usage
+# 🚀 Usage
 
-### Standard multi-camera run
+## Standard Multi-Camera Tracking
+
 ```bash
 python main.py --cams cam1.mp4 cam2.mp4 cam3.mp4
 ```
 
-### Select model and threshold
+## Select ReID Model
+
 ```bash
-python main.py --cams cam1.mp4 cam2.mp4 --model osnet --threshold 0.55
+python main.py \
+  --cams cam1.mp4 cam2.mp4 \
+  --model osnet \
+  --threshold 0.55
 ```
 
-### Market-1501 evaluation
+## Market-1501 Evaluation
+
 ```bash
-python main.py --cams cam1.mp4 --eval --eval-root /data/Market-1501
+python main.py \
+  --cams cam1.mp4 \
+  --eval \
+  --eval-root /data/Market-1501
 ```
 
-### Ablation study (tracker × backbone grid)
+## Ablation Benchmarking
+
 ```bash
-python main.py --cams cam1.mp4 cam2.mp4 --ablation \
-    --models resnet18 resnet50 osnet \
-    --trackers iou bytetrack
+python main.py \
+  --cams cam1.mp4 cam2.mp4 \
+  --ablation \
+  --models resnet18 resnet50 osnet \
+  --trackers iou bytetrack
 ```
 
-### Sanity check (verify embeddings are valid)
+## Embedding Sanity Check
+
 ```bash
 python main.py --sanity-check --model osnet
 ```
 
 ---
 
-## Benchmark Results
+# 📊 Benchmark Results
 
-> Run `--ablation` to populate this table with your hardware's numbers.
+| Backbone | Tracker | FPS | Global IDs | ID Switches |
+|---|---|---|---|---|
+| ResNet18 | IoU | — | — | — |
+| ResNet18 | ByteTrack | — | — | — |
+| ResNet50 | IoU | — | — | — |
+| ResNet50 | ByteTrack | — | — | — |
+| OSNet | IoU | — | — | — |
+| OSNet | ByteTrack | — | — | — |
 
-| Backbone | Tracker    | FPS | Global IDs | ID Switches |
-|----------|------------|-----|------------|-------------|
-| ResNet18 | IoU        | —   | —          | —           |
-| ResNet18 | ByteTrack  | —   | —          | —           |
-| ResNet50 | IoU        | —   | —          | —           |
-| ResNet50 | ByteTrack  | —   | —          | —           |
-| OSNet    | IoU        | —   | —          | —           |
-| OSNet    | ByteTrack  | —   | —          | —           |
-
----
-
-## Evaluation (Market-1501)
-
-1. Download [Market-1501](https://zheng-lab.cecs.anu.edu.au/Project/project_reid.html).
-2. Unzip so the directory contains `query/` and `bounding_box_test/`.
-3. Run:
-   ```bash
-   python main.py --cams cam1.mp4 --eval \
-       --eval-root /path/to/Market-1501 \
-       --model osnet
-   ```
-
-Expected reference numbers (OSNet-x1_0, Market-1501 pretrained via torchreid):
-
-| mAP | Rank-1 | Rank-5 | Rank-10 |
-|-----|--------|--------|---------|
-| ~74% | ~94% | ~98% | ~99% |
+> Run `--ablation` to generate benchmark results on your hardware.
 
 ---
 
-## Interview-Ready Explanation
+# 🧪 Market-1501 Evaluation
 
-**What does this system do?**
-Given N video streams from different cameras covering the same area, the system detects every person in every frame, assigns them a stable camera-local track ID using ByteTrack, extracts a 512-dimensional identity embedding via OSNet, and then matches those embeddings across cameras using cosine similarity to assign a single global ID per physical person.
+## Dataset Setup
 
-**Why OSNet over ResNet for ReID?**
-OSNet is trained with triplet loss on ReID datasets (Market-1501), which explicitly optimises the embedding space so that cosine similarity is high for same-identity pairs and low for different-identity pairs. An ImageNet ResNet backbone is trained with cross-entropy loss for category classification — it produces embeddings that cluster by appearance category (jacket colour, clothing type), not by individual identity. Using cosine similarity on raw ImageNet features gives near-random matching performance.
+1. Download the Market-1501 dataset
+2. Extract it
+3. Ensure the structure contains:
 
-**Why [x,y,a,h] in the Kalman filter?**
-Using aspect ratio `a = w/h` instead of raw width makes the state scale-invariant: a standing adult has `a ≈ 0.4–0.6` regardless of their distance from the camera. This allows fixed, well-conditioned noise matrices Q and R, whereas raw width varies wildly with depth. Both SORT and ByteTrack use this parameterisation for the same reason.
+```text
+query/
+bounding_box_test/
+```
 
-**What was the double-increment bug?**
-In v2, tracks moved from the active pool to the lost pool in Step A had their `missing` counter incremented. Then in Step B, all lost tracks (including the newly-added ones) were incremented again. So a track that missed exactly one frame got `missing=2` instead of `missing=1`, halving its effective occlusion lifetime and causing premature track termination and spurious ID switches.
+## Run Evaluation
 
-**Why does the Market-1501 distractor fix matter?**
-The official protocol keeps distractor images (pid==-1) in the gallery. They occupy rank positions without being counted as correct matches, making the task harder. Removing them from the gallery at load time (v2 bug) made the ranked list shorter and cleaner, artificially inflating Rank-1 by removing noise that would otherwise push true positives down the list. Fixed numbers are directly comparable to published results.
-#   R E I D _ C V  
- 
+```bash
+python main.py \
+  --cams cam1.mp4 \
+  --eval \
+  --eval-root /path/to/Market-1501 \
+  --model osnet
+```
+
+---
+
+# 📈 Expected Performance
+
+| Metric | Score |
+|---|---|
+| mAP | ~74% |
+| Rank-1 | ~94% |
+| Rank-5 | ~98% |
+| Rank-10 | ~99% |
+
+Using:
+- OSNet-x1_0
+- Market-1501 pretrained weights
+- torchreid embeddings
+
+---
+
+# 🎯 How the System Works
+
+## Step 1 — Person Detection
+
+YOLOv8 detects all visible persons in each camera frame.
+
+## Step 2 — Local Tracking
+
+ByteTrack assigns stable local IDs using:
+- IoU association
+- Kalman motion prediction
+
+## Step 3 — Feature Extraction
+
+OSNet generates a discriminative embedding vector for every person crop.
+
+## Step 4 — Cross-Camera Matching
+
+Cosine similarity compares embeddings across cameras to determine whether two detections belong to the same identity.
+
+## Step 5 — Global Identity Assignment
+
+A unified global ID is assigned across all camera streams.
+
+---
+
+# 🧠 Technical Design Decisions
+
+## Why OSNet Instead of ResNet?
+
+OSNet is specifically trained for person ReID using metric learning losses like triplet loss.
+
+This creates an embedding space where:
+- Same identities cluster together
+- Different identities remain far apart
+
+ImageNet-trained ResNet models optimize category classification instead of identity discrimination, making them significantly weaker for ReID tasks.
+
+---
+
+## Why Use `[x, y, a, h]` in Kalman Tracking?
+
+Where:
+- `x, y` → center position
+- `a` → aspect ratio
+- `h` → height
+
+Using aspect ratio instead of raw width provides:
+- Better numerical stability
+- Scale invariance
+- Improved tracking consistency
+
+This formulation is also used in:
+- SORT
+- DeepSORT
+- ByteTrack
+
+---
+
+## ByteTrack Double-Increment Bug (v2)
+
+### Problem
+
+Lost tracks were incremented twice per frame.
+
+### Effect
+
+- Shortened occlusion lifetime
+- Premature track deletion
+- Increased ID switches
+
+### Fix
+
+Tracks now increment exactly once per missed frame.
+
+---
+
+## Market-1501 Distractor Fix
+
+The official protocol includes distractor images (`pid == -1`) inside the gallery.
+
+Removing them artificially inflates Rank-1 accuracy because:
+- Fewer false candidates exist
+- True matches move higher in ranking
+
+v3 follows the official evaluation protocol correctly.
+
+---
+
+# 📌 Future Improvements
+
+- [ ] DeepSORT integration
+- [ ] TensorRT acceleration
+- [ ] Distributed multi-node camera support
+- [ ] FAISS ANN search for large galleries
+- [ ] Transformer-based ReID backbones
+- [ ] Web dashboard visualization
+- [ ] Docker deployment
+
+---
+
+# 👨‍💻 Author
+
+### Prajwal Barsagade
+
+Computer Vision • Deep Learning • Multi-Object Tracking • Person ReID
+
+---
+
+# ⭐ If You Like This Project
+
+Give the repository a star on GitHub ⭐
+
+```bash
+git clone https://github.com/Prajwal07114/REID_CV.git
+```
